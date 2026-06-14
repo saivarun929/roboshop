@@ -1,118 +1,139 @@
+# Catalogue Service
 
-03-Catalogue
-Catalogue is a microservice that is responsible for serving the list of items that displays in roboshop application.
+## What is Catalogue
+Microservice responsible for serving the list of items 
+displayed in Roboshop application.
 
-Developer has chosen NodeJs, Check with developer which version of NodeJS is needed. Developer has set a context that it can work with NodeJS >20
+## Technology
+- Runtime: NodeJS 20
+- Developed by: Internal Dev Team
 
-Install NodeJS, By default NodeJS 16 is available, We would like to enable 20 version and install list.
+## Instance Details
+- AMI: ami-0220d79f3f480ecf5
+- Type: t2.micro
+- Region: us-east-1 N.Virginia
+- Name: catalogue
 
-You can list modules by using dnf module list nodejs
+## Connection
+- Tool: MobaXterm
+- User: ec2-user
+- Switch to root: `sudo su -`
 
-Disable current module
+## Setup Commands
 
+**Step 1 - Install NodeJS 20**
+```bash
 dnf module disable nodejs -y
-Enable required module
-
 dnf module enable nodejs:20 -y
-Install NodeJS
-
 dnf install nodejs -y
-Configure the application.
+```
 
-Our application developed by the developer of our org and it is not having any RPM software just like other softwares. So we need to configure every step manually
+**Step 2 - Create Roboshop System User**
+```bash
+useradd --system --home /app \
+--shell /sbin/nologin \
+--comment "roboshop system user" roboshop
+```
+> Roboshop is a system/daemon user — not for login
 
-We already discussed in Linux basics section that applications should run as nonroot user.
+**Step 3 - Create App Directory**
+```bash
+mkdir /app
+```
 
-Add application User
-
-useradd --system --home /app --shell /sbin/nologin --comment "roboshop system user" roboshop
-User roboshop is a function / daemon user to run the application. Apart from that we dont use this user to login to server.
-
-Also, username roboshop has been picked because it more suits to our project name.
-
-We keep application in one standard location. This is a usual practice that runs in the organization.
-
-Lets setup an app directory.
-
-mkdir /app 
-Download the application code to created app directory.
-
-curl -o /tmp/catalogue.zip https://roboshop-artifacts.s3.amazonaws.com/catalogue-v3.zip 
-cd /app 
+**Step 4 - Download Application Code**
+```bash
+curl -o /tmp/catalogue.zip \
+https://roboshop-artifacts.s3.amazonaws.com/catalogue-v3.zip
+cd /app
 unzip /tmp/catalogue.zip
-Every application is developed by development team will have some common softwares that they use as libraries. This application also have the same way of defined dependencies in the application configuration.
+```
 
-Lets download the dependencies.
+**Step 5 - Install Dependencies**
+```bash
+cd /app
+npm install
+```
 
-cd /app 
-npm install 
-We need to setup a new service in systemd so systemctl can manage this service
+**Step 6 - Create Catalogue Service**
+```bash
+vim /etc/systemd/system/catalogue.service
+```
 
-We already discussed in linux basics that advantages of systemctl managing services, Hence we are taking that approach. Which is also a standard way in the OS.
-
-Setup SystemD Catalogue Service
-
+Add this content:
+```
 [Unit]
-Description = Catalogue Service
+Description=Catalogue Service
 
 [Service]
 User=roboshop
 Environment=MONGO=true
-// highlight-start
-Environment=MONGO_URL="mongodb://<MONGODB-SERVER-IPADDRESS>:27017/catalogue"
-// highlight-end
+Environment=MONGO_URL="mongodb://<MONGODB-IP>:27017/catalogue"
 ExecStart=/bin/node /app/server.js
 SyslogIdentifier=catalogue
 
 [Install]
 WantedBy=multi-user.target
-Hint! You can create file by using vim /etc/systemd/system/catalogue.service
+```
+> ⚠️ Replace `<MONGODB-IP>` with your MongoDB EC2 Private IP!
 
-Ensure you replace <MONGODB-SERVER-IPADDRESS> with IP address
-
-Load the service.
-
+**Step 7 - Start Catalogue Service**
+```bash
 systemctl daemon-reload
-This above command is because we added a new service, We are telling systemd to reload so it will detect new service.
-
-Start the service.
-
-systemctl enable catalogue 
+systemctl enable catalogue
 systemctl start catalogue
-For the application to work fully functional we need to load schema to the Database. Additonally we are going to have master data to be seeded for the applications to work. Here in this case it is list of products we want to sale.
+```
 
-Schemas are usually part of application code and developer will provide them as part of development.
-
-Master data are usually provided by business operations team.
-
-To load schema / master data we need to install mongodb client and then we can load it.
-
-To have mongo client installed we have to setup MongoDB repo and install mongodb-client. You can create file using
-
+**Step 8 - Setup MongoDB Repo on Catalogue Server**
+```bash
 vim /etc/yum.repos.d/mongo.repo
+```
+
+Add this content:
+```
 [mongodb-org-7.0]
 name=MongoDB Repository
 baseurl=https://repo.mongodb.org/yum/redhat/9/mongodb-org/7.0/x86_64/
 enabled=1
 gpgcheck=0
+```
+
+**Step 9 - Install MongoDB Client**
+```bash
 dnf install mongodb-mongosh -y
-Load Master Data of the List of products we want to sell and their quantity information also there in the same master data.
+```
 
-mongosh --host MONGODB-SERVER-IPADDRESS </app/db/master-data.js
-NOTE: You need to update catalogue server ip address in frontend configuration. Configuration file is /etc/nginx/nginx.conf
+**Step 10 - Load Master Data**
+```bash
+mongosh --host <MONGODB-IP> </app/db/master-data.js
+```
+> ⚠️ Replace `<MONGODB-IP>` with your MongoDB EC2 Private IP!
 
-Use below commands to check data is loaded into mongodb or not Connect to MongoDB
+## Verify Data Loaded Successfully
+```bash
+# Connect to MongoDB
+mongosh --host <MONGODB-IP>
 
-mongosh --host MONGODB-SERVER-IPADDRESS
-Show databases
-
+# Show databases
 show dbs
-Use database
 
+# Use catalogue database
 use catalogue
-Show Collections
 
+# Show collections
 show collections
-Get the items in collection
 
+# Get products
 db.products.find()
+```
+
+## Important Notes
+- Update MongoDB IP in catalogue.service file
+- Update Catalogue IP in Frontend nginx.conf
+- Port: 27017 (MongoDB)
+- Catalogue runs as roboshop user — not root
+
+## Status Check
+```bash
+systemctl status catalogue
+```
