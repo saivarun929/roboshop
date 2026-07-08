@@ -153,6 +153,11 @@ systemctl status nginx
 - Frontend runs on port 80
 - All API calls proxied to backend services
 
+## Access
+- URL: http://devopssai.online
+- Port: 80 (HTTP)
+- Note: HTTPS not configured yet
+
 ## DNS Records Needed in Route 53
 | Component | DNS Name |
 |-----------|----------|
